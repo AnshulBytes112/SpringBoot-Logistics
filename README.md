@@ -49,7 +49,7 @@ spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 
 
-#3# 3.Run the application
+### 3.Run the application
  
 Via terminal:
 ./mvnw spring-boot:run
