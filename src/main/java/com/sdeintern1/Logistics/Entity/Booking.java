@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.sql.Timestamp;
@@ -14,12 +16,13 @@ import java.util.UUID;
 
 @Entity
 @Data
+@EqualsAndHashCode(callSuper = true)
 @AllArgsConstructor
-
-
-@Table(name = "booking")
 @NoArgsConstructor
-public class Booking {
+@Table(name = "booking")
+@SQLDelete(sql = "UPDATE booking SET deleted = true WHERE id=?")
+@Where(clause = "deleted=false")
+public class Booking extends Auditable<String> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -36,25 +39,15 @@ public class Booking {
 
     private String comment;
 
+    private boolean deleted = false;
+
     @Enumerated(EnumType.STRING)
     @Getter
     @Setter
     private Status status= Status.PENDING;
 
 
-
-
     public enum Status {
         PENDING,ACCEPTED,REJECTED
     }
-
-
-    @CreationTimestamp
-    private Timestamp requestedAt;
-
-
-
-
-
-
 }

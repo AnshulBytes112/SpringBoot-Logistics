@@ -1,113 +1,71 @@
 package com.sdeintern1.Logistics.Controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.sdeintern1.Logistics.Entity.Load;
+import com.sdeintern1.Logistics.DTO.LoadRequestDTO;
+import com.sdeintern1.Logistics.DTO.LoadResponseDTO;
 import com.sdeintern1.Logistics.Service.LoadService;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/load")
+@RequestMapping("/api/loads")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Load Management", description = "Endpoints for managing loads")
 public class LoadController {
-    private static final Logger logger = LoggerFactory.getLogger(LoadController.class);
 
-    @Autowired
-    private LoadService loadservice;
+    private final LoadService loadService;
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody Load load){
-        logger.info("Creating new load entry: {}", load);
-        try {
-            logger.info("Creating new load entry: {}", load);
-            Load savedload= loadservice.saveentry(load);
-            return new ResponseEntity<>(savedload, HttpStatus.CREATED);
-        }
-        catch(Exception e){
-            logger.error("Error while saving Load: {}", e.getMessage());
-            return new ResponseEntity<>("Failed to create load: " + e.getMessage(), HttpStatus.BAD_REQUEST);
-        }
+    @Operation(summary = "Create a new load")
+    public ResponseEntity<LoadResponseDTO> create(@Valid @RequestBody LoadRequestDTO requestDTO) {
+        log.info("REST request to create Load: {}", requestDTO);
+        LoadResponseDTO response = loadService.saveEntry(requestDTO);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @GetMapping
-    public ResponseEntity<?> getfilter(@RequestParam Map<String, String> params){
-
-
-        try{
-            logger.info("Fetching loads with filters - shipperId: {}, productType: {}, truckType: {}", params.get("shipperId"), params.get("productType"), params.get("truckType"));
-
-            List<String> allowed = List.of("shipperId", "productType", "truckType");
-
-            for (String key : params.keySet()) {
-                if (!allowed.contains(key)) {
-                    logger.warn("Unknown filter used");
-                    throw new IllegalArgumentException("Unknown filter parameter: " + key);
-                }
-            }
-            List<Load> list=loadservice.getbyfilter(params.get("shipperId"), params.get("productType"), params.get("truckType"));
-            if (list.isEmpty()) {
-                logger.info("No loads found with provided filters.");
-                return new ResponseEntity<>(HttpStatus.NO_CONTENT);  //
-            }
-            return new ResponseEntity<>(list,HttpStatus.FOUND);
-
+    @Operation(summary = "Get loads by filters")
+    public ResponseEntity<List<LoadResponseDTO>> getByFilter(
+            @RequestParam(required = false) String shipperId,
+            @RequestParam(required = false) String productType,
+            @RequestParam(required = false) String truckType
+    ) {
+        log.info("REST request to get Loads by filter - Shipper: {}, Product: {}, Truck: {}", shipperId, productType, truckType);
+        List<LoadResponseDTO> list = loadService.getByFilter(shipperId, productType, truckType);
+        if (list.isEmpty()) {
+            return ResponseEntity.noContent().build();
         }
-        catch(Exception e){
-            logger.error("Error while fetching loads: {}", e.getMessage());
-            return new ResponseEntity<>("Error retrieving loads: " + e.getMessage(), HttpStatus.NOT_FOUND);        }
+        return ResponseEntity.ok(list);
     }
 
-
-
-    @GetMapping("{loadId}")
-    public ResponseEntity<?> getbyid(@PathVariable UUID loadId) {
-        logger.info("Fetching load by ID: {}", loadId);
-
-        Optional<Load> loadentry = loadservice.getbyid(loadId);
-        if (loadentry.isPresent()) {
-            return new ResponseEntity<>(loadentry, HttpStatus.FOUND);
-        } else {
-            logger.warn("Load with ID {} not found", loadId);
-            return new ResponseEntity<>("Load not found with ID: " + loadId, HttpStatus.NOT_FOUND);
-        }
+    @GetMapping("/{loadId}")
+    @Operation(summary = "Get a load by ID")
+    public ResponseEntity<LoadResponseDTO> getById(@PathVariable UUID loadId) {
+        log.info("REST request to get Load: {}", loadId);
+        return ResponseEntity.ok(loadService.getById(loadId));
     }
 
-    @DeleteMapping("{loadId}")
-    public ResponseEntity<?> deletebyid(@PathVariable UUID loadId){
-        logger.info("Deleting load with ID: {}", loadId);
-
-        try {
-            loadservice.deletebyid(loadId);
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-        }
-        catch(Exception e){
-            logger.error("Error deleting load with ID {}: {}", loadId, e.getMessage());
-            return new ResponseEntity<>("Failed to delete load: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+    @DeleteMapping("/{loadId}")
+    @Operation(summary = "Delete a load by ID (Soft Delete)")
+    public ResponseEntity<Void> deleteById(@PathVariable UUID loadId) {
+        log.info("REST request to delete Load: {}", loadId);
+        loadService.deleteById(loadId);
+        return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("{LoadId}")
-
-    public ResponseEntity<?> updateentry(@PathVariable UUID LoadId,@RequestBody Load updatedLoad){
-        logger.info("Updating load with ID: {}", LoadId);
-        try {
-            return new ResponseEntity<>(loadservice.update(LoadId, updatedLoad), HttpStatus.OK);
-        }
-        catch (Exception e){
-            logger.error("Error updating load with ID {}: {}", LoadId, e.getMessage());
-            return new ResponseEntity<>("Failed to update load: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
+    @PutMapping("/{loadId}")
+    @Operation(summary = "Update an existing load")
+    public ResponseEntity<LoadResponseDTO> update(@PathVariable UUID loadId, @Valid @RequestBody LoadRequestDTO requestDTO) {
+        log.info("REST request to update Load: {}, payload: {}", loadId, requestDTO);
+        return ResponseEntity.ok(loadService.update(loadId, requestDTO));
     }
-
-
-
-
-
-
 }

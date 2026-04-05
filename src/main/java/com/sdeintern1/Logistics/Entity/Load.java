@@ -7,19 +7,22 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(name = "loads")
-public class Load {
+@SQLDelete(sql = "UPDATE loads SET deleted = true WHERE id=?")
+@Where(clause = "deleted=false")
+public class Load extends Auditable<String> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -38,11 +41,11 @@ public class Load {
 
     private int noOfTrucks;
 
-@Positive(message = "weight should be positive")
-private double weight;
+    @Positive(message = "weight should be positive")
+    private double weight;
     private String comment;
-    @CreationTimestamp
-    private Timestamp datePosted;
+
+    private boolean deleted = false;
 
     @Embedded
     private Facility facility;

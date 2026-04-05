@@ -1,162 +1,70 @@
 package com.sdeintern1.Logistics.Controller;
 
-
-import com.sdeintern1.Logistics.Entity.Booking;
-import com.sdeintern1.Logistics.Entity.Load;
-import com.sdeintern1.Logistics.Repository.LoadRepository;
-
+import com.sdeintern1.Logistics.DTO.BookingRequestDTO;
+import com.sdeintern1.Logistics.DTO.BookingResponseDTO;
 import com.sdeintern1.Logistics.Service.BookingService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/book")
+@RequestMapping("/api/bookings")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Booking Management", description = "Endpoints for managing bookings")
 public class BookingController {
-    private static final Logger logger = LoggerFactory.getLogger(BookingController.class);
 
-    @Autowired
-    private BookingService bookingservice;
-
-    @Autowired
-    private LoadRepository loadrepo;
+    private final BookingService bookingService;
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody Booking Book){
-
-
-        try {
-            logger.info("Received booking request: {}", Book);
-
-            UUID loadId = Book.getLoadId();
-            Optional<Load> loadcheck = loadrepo.findById(loadId);
-            if (loadcheck.isPresent()) {
-                Load load = loadcheck.get();
-                logger.info("Load found with ID: {}", loadId);
-            } else {
-                logger.warn("Load not found with ID: {}", loadId);
-
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-
-
-            if (loadcheck.get().getStatus() == Load.Status.CANCELLED) {
-                logger.warn("Cannot book, load is CANCELLED: {}", loadId);
-                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-            }
-
-            loadcheck.get().setStatus(Load.Status.BOOKED);
-            loadrepo.save(loadcheck.get());
-            logger.info("Load status updated to BOOKED for load ID: {}", loadId);
-
-            Booking savedBooking = bookingservice.createentry(Book);
-            logger.info("Booking created successfully with ID: {}", savedBooking.getId());
-
-
-            return new ResponseEntity<>(savedBooking, HttpStatus.CREATED);
-        }
-        catch(Exception e){
-            logger.error("Error occurred while creating booking", e);
-
-            throw new RuntimeException(e);
-        }
+    @Operation(summary = "Create a new booking for a load")
+    public ResponseEntity<BookingResponseDTO> create(@Valid @RequestBody BookingRequestDTO requestDTO) {
+        log.info("REST request to create Booking: {}", requestDTO);
+        BookingResponseDTO response = bookingService.createEntry(requestDTO);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
-
 
     @GetMapping
-    public ResponseEntity<?> getall(@RequestParam Map<String, String> params){
-        try {
-            logger.info("Fetching all bookings with transporterId: {} and proposedRate: {}", params.get("transporterId"),params.get("proposedRate"));
-
-            List<String> allowed = List.of("transporterId", "proposedRate");
-
-            for (String key : params.keySet()) {
-                if (!allowed.contains(key)) {
-                    logger.warn("Unknown filter used");
-                    throw new IllegalArgumentException("Unknown filter parameter: " + key);
-                }
-            }
-            String transporterId = params.get("transporterId");
-            Double proposedRate = null;
-
-            if (params.get("proposedRate") != null) {
-                proposedRate = Double.valueOf(params.get("proposedRate"));
-            }
-            List<Booking> list=bookingservice.getAll(transporterId, proposedRate);
-            if (list.isEmpty()) {
-                logger.info("No Booking found with provided filters.");
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);  //
-            }
-            return new ResponseEntity<>(list,HttpStatus.FOUND);
-
-
-        } catch (Exception e) {
-            logger.error("No entry found");
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    @Operation(summary = "Get bookings by filters")
+    public ResponseEntity<List<BookingResponseDTO>> getAll(
+            @RequestParam(required = false) String transporterId,
+            @RequestParam(required = false) Double proposedRate
+    ) {
+        log.info("REST request to get Bookings by filter - Transporter: {}, Rate: {}", transporterId, proposedRate);
+        List<BookingResponseDTO> list = bookingService.getAll(transporterId, proposedRate);
+        if (list.isEmpty()) {
+            return ResponseEntity.noContent().build();
         }
-        }
-
-    @GetMapping("{Id}")
-    public ResponseEntity<?> getbyid(@PathVariable UUID Id){
-        try {
-            logger.info("Fetching booking by ID: {}", Id);
-            Optional<Booking> bookingentry = bookingservice.getbyid(Id);
-            if (bookingentry.isPresent()) {
-                Optional<Load> load = loadrepo.findById(bookingentry.get().getLoadId());
-                if (load.isPresent()) {
-                    logger.info("Booking and associated Load found for booking ID: {}", Id);
-                    return new ResponseEntity<>(bookingentry, HttpStatus.FOUND);
-                } else {
-                    logger.warn("Associated Load not found for booking ID: {}", Id);
-                    return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-                }
-            } else {
-                logger.warn("Booking not found with ID: {}", Id);
-
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        }
-        catch(Exception e){
-            logger.error("Error occurred while fetching booking by ID", e);
-            throw new RuntimeException(e);
-        }
+        return ResponseEntity.ok(list);
     }
 
-    @DeleteMapping("{loadId}")
-    public ResponseEntity<?> deletebyid(@PathVariable UUID loadId){
-        try {
-            logger.info("Deleting booking with Load ID: {}", loadId);
-            bookingservice.deletebyid(loadId);
-            logger.info("Booking deleted successfully for Load ID: {}", loadId);
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-        }
-        catch(Exception e){
-            logger.error("Error occurred while deleting booking", e);
-            throw new RuntimeException(e);
-        }
-    }
-    @PutMapping("{BookId}")
-
-    public ResponseEntity<?> updateentry(@PathVariable UUID BookId,@RequestBody Booking updatedLoad){
-        try {
-            logger.info("Updating booking with ID: {} with data: {}", BookId, updatedLoad);
-            return new ResponseEntity<>(bookingservice.update(BookId, updatedLoad), HttpStatus.OK);
-        }
-        catch(Exception  e){
-            logger.error("Error occurred while updating booking", e);
-            throw new RuntimeException(e);
-        }
-
+    @GetMapping("/{id}")
+    @Operation(summary = "Get a booking by ID")
+    public ResponseEntity<BookingResponseDTO> getById(@PathVariable UUID id) {
+        log.info("REST request to get Booking: {}", id);
+        return ResponseEntity.ok(bookingService.getById(id));
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a booking by ID")
+    public ResponseEntity<Void> deleteById(@PathVariable UUID id) {
+        log.info("REST request to delete Booking: {}", id);
+        bookingService.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
 
-
+    @PutMapping("/{id}")
+    @Operation(summary = "Update an existing booking")
+    public ResponseEntity<BookingResponseDTO> update(@PathVariable UUID id, @Valid @RequestBody BookingRequestDTO requestDTO) {
+        log.info("REST request to update Booking: {}, payload: {}", id, requestDTO);
+        return ResponseEntity.ok(bookingService.update(id, requestDTO));
+    }
 }

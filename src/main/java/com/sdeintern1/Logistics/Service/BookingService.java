@@ -1,113 +1,100 @@
 package com.sdeintern1.Logistics.Service;
 
-
+import com.sdeintern1.Logistics.DTO.BookingRequestDTO;
+import com.sdeintern1.Logistics.DTO.BookingResponseDTO;
 import com.sdeintern1.Logistics.Entity.Booking;
 import com.sdeintern1.Logistics.Entity.Load;
+import com.sdeintern1.Logistics.Mapper.BookingMapper;
 import com.sdeintern1.Logistics.Repository.BookingRepository;
 import com.sdeintern1.Logistics.Repository.LoadRepository;
 import com.sdeintern1.Logistics.Specification.BookingSpecification;
-import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class BookingService {
-    @Autowired
-    private BookingRepository bookingrepo;
-    @Autowired
-    private LoadRepository loadrepo;
 
-    @Autowired
-    private LoadService loadservice;
+    private final BookingRepository bookingRepository;
+    private final LoadRepository loadRepository;
+    private final BookingMapper bookingMapper;
 
-        @Transactional
-    public Booking createentry(Booking book){
-            try {
+    @Transactional
+    @CacheEvict(value = "bookings", allEntries = true)
+    public BookingResponseDTO createEntry(BookingRequestDTO requestDTO) {
+        log.debug("Creating booking for load: {} by transporter: {}", requestDTO.getLoadId(), requestDTO.getTransporterId());
+        
+        Load load = loadRepository.findById(requestDTO.getLoadId())
+                .orElseThrow(() -> new RuntimeException("Load not found with ID: " + requestDTO.getLoadId()));
 
-                book.setStatus(Booking.Status.ACCEPTED);
+        if (load.getStatus() != Load.Status.POSTED) {
+            throw new RuntimeException("Cannot book a load that is not in POSTED status");
+        }
 
-
-                        return bookingrepo.save(book);
-                    }
-
-
-
-            catch (Exception e){
-                throw new RuntimeException(e);
-            }
+        Booking booking = bookingMapper.toEntity(requestDTO);
+        booking.setStatus(Booking.Status.PENDING);
+        Booking savedBooking = bookingRepository.save(booking);
+        
+        return bookingMapper.toResponseDTO(savedBooking);
     }
 
-    public List<Booking> getAll(String transporterId,Double proposedRate){
-
-
+    @Cacheable(value = "bookings", key = "#transporterId + '-' + #proposedRate")
+    public List<BookingResponseDTO> getAll(String transporterId, Double proposedRate) {
+        log.debug("Fetching bookings with filter - Transporter: {}, Rate: {}", transporterId, proposedRate);
         Specification<Booking> spec = Specification.where(BookingSpecification.hastransporterId(transporterId))
                 .and(BookingSpecification.hasproposedRate(proposedRate));
 
-        return bookingrepo.findAll(spec);
+        return bookingRepository.findAll(spec).stream()
+                .map(bookingMapper::toResponseDTO)
+                .toList();
     }
 
-
-
-
-
-    public Optional<Booking> getbyid(UUID id){
-        return bookingrepo.findById(id);
+    @Cacheable(value = "bookings", key = "#id")
+    public BookingResponseDTO getById(UUID id) {
+        log.debug("Fetching booking by ID: {}", id);
+        return bookingRepository.findById(id)
+                .map(bookingMapper::toResponseDTO)
+                .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + id));
     }
 
-    public void deletebyid(UUID id){
+    @Transactional
+    @CacheEvict(value = "bookings", key = "#id")
+    public void deleteById(UUID id) {
+        log.debug("Soft deleting booking with ID: {}", id);
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + id));
 
-            try{
-                Optional<Load> load=loadrepo.findById(id);
-                if(load.isPresent()){
-                    Load loadentry=load.get();
-                    loadentry.setStatus(Load.Status.CANCELLED);
-                    loadrepo.save(loadentry);
-
-                }
-
-                bookingrepo.deleteById(id);
-            }
-            catch(Exception e){
-                throw new RuntimeException(e);
-            }
-
+        bookingRepository.deleteById(id);
     }
 
-    public Booking update(UUID id,Booking newentry) {
+    @Transactional
+    @CachePut(value = "bookings", key = "#id")
+    public BookingResponseDTO update(UUID id, BookingRequestDTO requestDTO) {
+        log.debug("Updating booking with ID: {}", id);
+        Booking existingBooking = bookingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + id));
 
-        Optional<Booking> oldentry = bookingrepo.findById(id);
-
-
-        if (oldentry.isPresent()) {
-            Booking old = oldentry.get();
-            if (old.getLoadId() != null && old.getLoadId().equals(newentry.getLoadId()))
-            {
-            old.setProposedRate((newentry.getProposedRate() != null && !newentry.getProposedRate().isNaN()) ? newentry.getProposedRate() : old.getProposedRate());
-
-            old.setComment((newentry.getComment() != null && !newentry.getComment().isEmpty()) ? newentry.getComment() : old.getComment());
-            old.setStatus(newentry.getStatus() != null ? newentry.getStatus() : old.getStatus());
-
-
-            return bookingrepo.save(old);}
-            else{
-                return oldentry.get();
-            }
-
-        } else {
-            throw new RuntimeException("lOAD WITH ID" + id + "NOT FOUND");
+        bookingMapper.updateEntityFromDTO(requestDTO, existingBooking);
+        
+        // Logical check: if status is changed to ACCEPTED, update the load status
+        if (existingBooking.getStatus() == Booking.Status.ACCEPTED) {
+            Load load = loadRepository.findById(existingBooking.getLoadId())
+                    .orElseThrow(() -> new RuntimeException("Load not found for this booking"));
+            load.setStatus(Load.Status.BOOKED);
+            loadRepository.save(load);
         }
 
+        Booking updatedBooking = bookingRepository.save(existingBooking);
+        return bookingMapper.toResponseDTO(updatedBooking);
     }
-
-
-
-
-
-
-
-    }
+}
