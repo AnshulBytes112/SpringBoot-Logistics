@@ -1,0 +1,89 @@
+.tracker-cancelled {
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-left: 4px solid var(--status-cancelled);
+}
+
+.shipment-tracker {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.tracker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.pulse-indicator {
+    width: 10px;
+    height: 10px;
+    background: var(--status-posted);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+.tracker-timeline {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    position: relative;
+}
+
+.timeline-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    flex: 1;
+}
+
+.timeline-node {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    border: 2px solid var(--glass-border);
+    display: grid;
+    place-items: center;
+    font-size: 0.9rem;
+    transition: all 0.4s;
+}
+
+.timeline-node.active {
+    border-color: var(--accent-solid);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.timeline-node.completed {
+    background: var(--status-accepted);
+    border-color: var(--status-accepted);
+    color: white;
+}
+
+.timeline-label {
+    margin-top: 8px;
+    font-size: 0.7rem;
+    text-align: center;
+    font-weight: 600;
+}
+
+.timeline-line {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    width: 100%;
+    height: 2px;
+    background: var(--glass-border);
+    z-index: -1;
+}
+
+.timeline-line.filled {
+    background: var(--status-accepted);
+}

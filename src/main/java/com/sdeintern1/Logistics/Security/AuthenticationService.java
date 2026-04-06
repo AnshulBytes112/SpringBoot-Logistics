@@ -11,6 +11,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
@@ -28,7 +31,12 @@ public class AuthenticationService {
                 .role(request.getRole())
                 .build();
         repository.save(user);
-        var jwtToken = jwtService.generateToken(user);
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("firstname", user.getFirstname());
+        if (user.getRole() != null) {
+            extraClaims.put("role", user.getRole().name());
+        }
+        var jwtToken = jwtService.generateToken(extraClaims, user);
         var refreshToken = jwtService.generateRefreshToken(user);
         return AuthenticationResponse.builder()
                 .accessToken(jwtToken)
@@ -45,7 +53,12 @@ public class AuthenticationService {
         );
         var user = repository.findByEmail(request.getEmail())
                 .orElseThrow();
-        var jwtToken = jwtService.generateToken(user);
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("firstname", user.getFirstname());
+        if (user.getRole() != null) {
+            extraClaims.put("role", user.getRole().name());
+        }
+        var jwtToken = jwtService.generateToken(extraClaims, user);
         var refreshToken = jwtService.generateRefreshToken(user);
         return AuthenticationResponse.builder()
                 .accessToken(jwtToken)
