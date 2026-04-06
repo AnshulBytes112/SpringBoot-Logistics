@@ -232,4 +232,3 @@ All passwords: use any password you choose (min length enforced).
 
 ---
 
-Made by **Aditya Raj**
