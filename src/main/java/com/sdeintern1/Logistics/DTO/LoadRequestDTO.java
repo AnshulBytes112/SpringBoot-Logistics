@@ -38,6 +38,9 @@ public class LoadRequestDTO {
 
     private Load.Status status;
 
+    private Double currentLat;
+    private Double currentLng;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
