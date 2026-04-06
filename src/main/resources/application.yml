@@ -1,10 +1,13 @@
+server:
+  port: 8081
+
 spring:
   application:
     name: Logistics
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/loadbook}
-    username: ${DATABASE_USERNAME:postgres}
-    password: ${DATABASE_PASSWORD:12345}
+    url: ${DATABASE_URL:jdbc:postgresql://ep-dark-glade-anqd0jdp-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channelBinding=require}
+    username: ${DATABASE_USERNAME:neondb_owner}
+    password: ${DATABASE_PASSWORD:npg_dQer7A1uBhyD}
   jpa:
     hibernate:
       ddl-auto: update # Keep as update initially for dev, transition to validate with Flyway

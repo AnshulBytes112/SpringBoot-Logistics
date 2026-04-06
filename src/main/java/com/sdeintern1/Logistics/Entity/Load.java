@@ -47,6 +47,9 @@ public class Load extends Auditable<String> {
 
     private boolean deleted = false;
 
+    private Double currentLat;
+    private Double currentLng;
+
     @Embedded
     private Facility facility;
 

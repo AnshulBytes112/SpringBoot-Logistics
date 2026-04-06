@@ -23,6 +23,8 @@ public class LoadResponseDTO {
     private String comment;
     private FacilityDTO facility;
     private Load.Status status;
+    private Double currentLat;
+    private Double currentLng;
     private String createdBy;
     private LocalDateTime createdDate;
     private LocalDateTime lastModifiedDate;
